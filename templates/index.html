@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gerador de Certificados — Coloquinho da Pós</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,600;0,900;1,300&family=DM+Mono:wght@400;500&family=Figtree:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+:root {
+  --ink:    #1a1410;
+  --paper:  #f7f3ec;
+  --warm:   #ede8df;
+  --coral:  #c95c3a;
+  --gold:   #c4922a;
+  --sage:   #5a7a6a;
+  --muted:  #7a6e64;
+  --border: #d8d0c4;
+  --card:   #ffffff;
+  --ok:     #3a7a5a;
+  --err:    #c93a3a;
+  --shadow: rgba(26,20,16,.07);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Figtree', sans-serif;
+  font-size: 15px;
+  line-height: 1.65;
+  min-height: 100vh;
+}
+body::after {
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.035'/%3E%3C/svg%3E");
+  opacity:.5;
+}
+
+/* ── Header ── */
+header {
+  background: var(--ink);
+  color: var(--paper);
+  padding: 0 clamp(20px,4vw,48px);
+  height: 62px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  box-shadow: 0 2px 24px rgba(0,0,0,.3);
+}
+.logo {
+  font-family: 'Fraunces', serif;
+  font-size: 17px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.logo-pip {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--coral);
+  box-shadow: 0 0 0 3px rgba(201,92,58,.25);
+}
+.hdr-sub {
+  font-family: 'DM Mono', monospace;
+  font-size: 10.5px;
+  color: #8a7e74;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+/* ── Steps ── */
+.steps-bar {
+  background: var(--warm);
+  border-bottom: 1.5px solid var(--border);
+  display: flex;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.steps-bar::-webkit-scrollbar{display:none}
+.step-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 15px clamp(14px,2.5vw,26px);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-family: 'Figtree', sans-serif;
+  font-size: 13.5px;
+  font-weight: 500;
+  border-bottom: 3px solid transparent;
+  transition: all .2s;
+  white-space: nowrap;
+}
+.step-btn:hover{color:var(--ink);background:rgba(0,0,0,.025)}
+.step-btn.active{color:var(--coral);border-bottom-color:var(--coral);background:rgba(201,92,58,.04)}
+.step-btn.done{color:var(--sage)}
+.step-num {
+  width: 21px; height: 21px;
+  border-radius: 50%;
+  background: var(--border);
+  color: white;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: background .2s;
+}
+.step-btn.active .step-num { background: var(--coral); }
+.step-btn.done  .step-num  { background: var(--sage); }
+
+/* ── Layout ── */
+main {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: clamp(28px,5vw,52px) clamp(16px,4vw,28px) 80px;
+}
+.panel { display: none; animation: fadeup .32s ease; }
+.panel.active { display: block; }
+@keyframes fadeup{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+
+.ph { font-family:'Fraunces',serif; font-size:clamp(26px,4vw,38px); font-weight:900;
+  letter-spacing:-.025em; line-height:1.1; margin-bottom:6px; }
+.ph span { color:var(--coral); }
+.ps { color:var(--muted); font-size:14px; margin-bottom:34px; }
+
+/* ── Cards ── */
+.card {
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: clamp(20px,3vw,30px) clamp(20px,3.5vw,34px);
+  margin-bottom: 18px;
+  box-shadow: 0 2px 14px var(--shadow);
+}
+.ct {
+  font-family: 'Fraunces', serif;
+  font-size: 15.5px;
+  font-weight: 600;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ct::before {
+  content:''; width:4px; height:17px;
+  background:var(--coral); border-radius:2px; flex-shrink:0;
+}
+
+/* ── Upload zones ── */
+.zone {
+  border: 2px dashed var(--border);
+  border-radius: 10px;
+  padding: 32px 20px;
+  text-align: center;
+  cursor: pointer;
+  background: var(--warm);
+  position: relative;
+  transition: border-color .18s, background .18s;
+}
+.zone:hover,.zone.over { border-color:var(--coral); background:rgba(201,92,58,.04); }
+.zone input[type=file] { position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%; }
+.zone-ico { font-size:32px; margin-bottom:8px; display:block; }
+.zone-lbl { font-family:'Fraunces',serif; font-size:15px; font-weight:600; margin-bottom:4px; display:block; }
+.zone-hint { font-size:11.5px; color:var(--muted); font-family:'DM Mono',monospace; }
+.file-ok {
+  display:flex; align-items:center; gap:10px;
+  padding:12px 16px; border-radius:8px; margin-top:12px; font-size:13px;
+  background:rgba(58,122,90,.08); border:1px solid rgba(58,122,90,.2); color:var(--ok);
+}
+
+/* ── Forms ── */
+.fg { display:flex; flex-direction:column; gap:5px; }
+.fg label { font-family:'DM Mono',monospace; font-size:11px; font-weight:500;
+  color:var(--muted); text-transform:uppercase; letter-spacing:.055em; }
+.grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
+.full  { grid-column:1/-1; }
+@media(max-width:560px){.grid2,.grid3{grid-template-columns:1fr}}
+
+input,textarea,select {
+  background:var(--warm); border:1.5px solid var(--border); border-radius:8px;
+  padding:9px 13px; font-family:'Figtree',sans-serif; font-size:14px; color:var(--ink);
+  transition:border-color .15s,box-shadow .15s; outline:none; width:100%;
+}
+input:focus,textarea:focus,select:focus {
+  border-color:var(--coral); box-shadow:0 0 0 3px rgba(201,92,58,.12);
+}
+textarea { resize:vertical; min-height:88px; }
+
+/* ── Toggle switch ── */
+.trow {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:13px 0; border-bottom:1px solid var(--warm);
+}
+.trow:last-child{border-bottom:none}
+.tinfo strong { font-size:14px; display:block; margin-bottom:2px; }
+.tinfo span   { font-size:12px; color:var(--muted); }
+.toggle{position:relative;width:44px;height:24px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.slider{position:absolute;inset:0;background:var(--border);border-radius:24px;cursor:pointer;transition:.22s}
+.slider::before{content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;
+  background:white;border-radius:50%;transition:.22s;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+input:checked+.slider{background:var(--coral)}
+input:checked+.slider::before{transform:translateX(20px)}
+
+/* ── Buttons ── */
+.btn {
+  display:inline-flex; align-items:center; gap:7px;
+  padding:10px 20px; border-radius:8px; border:none;
+  font-family:'Figtree',sans-serif; font-size:14px; font-weight:600;
+  cursor:pointer; text-decoration:none; transition:all .17s;
+}
+.btn-p { background:var(--coral); color:white; box-shadow:0 3px 10px rgba(201,92,58,.28); }
+.btn-p:hover { background:#b8512f; transform:translateY(-1px); box-shadow:0 5px 16px rgba(201,92,58,.38); }
+.btn-s { background:var(--warm); color:var(--ink); border:1.5px solid var(--border); }
+.btn-s:hover { background:var(--border); }
+.btn-g { background:var(--ok); color:white; box-shadow:0 3px 10px rgba(58,122,90,.22); }
+.btn-g:hover { background:#2d6347; transform:translateY(-1px); }
+.btn:disabled { opacity:.45; cursor:not-allowed; transform:none !important; }
+.brow { display:flex; gap:11px; align-items:center; margin-top:22px; flex-wrap:wrap; }
+
+/* ── Table ── */
+.twrap { overflow-x:auto; border-radius:10px; border:1px solid var(--border); margin-top:14px; }
+table { width:100%; border-collapse:collapse; font-size:13.5px; }
+thead tr { background:var(--ink); color:var(--paper); }
+th { padding:10px 15px; text-align:left; font-family:'DM Mono',monospace; font-size:10.5px; letter-spacing:.06em; }
+tbody tr { border-bottom:1px solid var(--warm); }
+tbody tr:last-child { border-bottom:none; }
+tbody tr:hover { background:rgba(201,92,58,.025); }
+td { padding:9px 15px; }
+.badge { display:inline-flex; align-items:center; gap:4px;
+  padding:3px 9px; border-radius:20px; font-size:10.5px; font-weight:600; font-family:'DM Mono',monospace; }
+.bwait { background:rgba(196,146,42,.12); color:var(--gold); }
+.bok   { background:rgba(58,122,90,.12);  color:var(--ok); }
+.berr  { background:rgba(201,58,58,.12);  color:var(--err); }
+
+/* ── Progress ── */
+.prog-wrap { margin:16px 0; }
+.prog-meta { display:flex; justify-content:space-between; font-size:11.5px; color:var(--muted);
+  margin-bottom:6px; font-family:'DM Mono',monospace; }
+.prog-bar { height:7px; background:var(--warm); border-radius:4px; overflow:hidden; border:1px solid var(--border); }
+.prog-fill { height:100%; background:linear-gradient(90deg,var(--coral),var(--gold));
+  border-radius:4px; transition:width .35s ease; width:0%; }
+
+/* ── Log console ── */
+.console {
+  background:#17120e; border-radius:10px; padding:16px 18px;
+  font-family:'DM Mono',monospace; font-size:11.5px; max-height:200px;
+  overflow-y:auto; color:#c8b89a; margin-top:14px; line-height:1.7;
+}
+.lo { color:#c8b89a } .lok { color:#7ecb9e } .lerr { color:#e07070 } .lwarn { color:#e0c070 }
+
+/* ── Stats ── */
+.stats { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:20px; }
+.scard { background:var(--card); border:1.5px solid var(--border); border-radius:10px;
+  padding:16px 18px; text-align:center; }
+.snum { font-family:'Fraunces',serif; font-size:34px; font-weight:900; line-height:1; margin-bottom:3px; }
+.slbl { font-size:11px; color:var(--muted); font-family:'DM Mono',monospace; }
+.sc  { color:var(--coral) } .sg { color:var(--ok) } .sy { color:var(--gold) }
+
+/* ── Alert ── */
+.alert { padding:12px 16px; border-radius:8px; font-size:13px; display:flex;
+  align-items:flex-start; gap:9px; margin-bottom:14px; line-height:1.55; }
+.ai { background:rgba(90,122,106,.07); border:1px solid rgba(90,122,106,.2); color:#2a4a38; }
+.aw { background:rgba(196,146,42,.09); border:1px solid rgba(196,146,42,.22); color:#6a4408; }
+.ae { background:rgba(201,58,58,.07);  border:1px solid rgba(201,58,58,.18);  color:#6a0e0e; }
+
+/* ── Preview iframe ── */
+.prev-shell {
+  background:#2b2218; border-radius:12px; overflow:hidden;
+  box-shadow:0 8px 32px rgba(0,0,0,.22); margin-top:16px;
+}
+.prev-bar {
+  background:#1a1208; padding:9px 14px;
+  display:flex; align-items:center; gap:6px;
+}
+.pd { width:9px; height:9px; border-radius:50%; }
+.prev-frame { width:100%; height:480px; border:none; background:#f0ece4; }
+.prev-placeholder {
+  height:480px; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:12px;
+  color:#7a6a50; font-size:14px; background:#f0ece4;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><span class="logo-pip"></span>Gerador de Certificados</div>
+  <div class="hdr-sub">Coloquinho da Pós · IME-USP</div>
+</header>
+
+<nav class="steps-bar" id="stepsBar">
+  <button class="step-btn active" data-s="1" onclick="goStep(1)"><span class="step-num">1</span>Arquivos</button>
+  <button class="step-btn"        data-s="2" onclick="goStep(2)"><span class="step-num">2</span>Seminário</button>
+  <button class="step-btn"        data-s="3" onclick="goStep(3)"><span class="step-num">3</span>Participantes</button>
+  <button class="step-btn"        data-s="4" onclick="goStep(4)"><span class="step-num">4</span>Pré-visualizar</button>
+  <button class="step-btn"        data-s="5" onclick="goStep(5)"><span class="step-num">5</span>Gerar & Enviar</button>
+</nav>
+
+<main>
+
+<!-- ══ STEP 1 ══ -->
+<section class="panel active" id="s1">
+  <h1 class="ph">Upload dos <span>arquivos</span></h1>
+  <p class="ps">Template PPTX e planilha de participantes</p>
+
+  <div class="card">
+    <div class="ct">Template de certificado (.pptx)</div>
+    <div class="zone" id="zt" ondragover="dg(event,'zt')" ondragleave="dl('zt')" ondrop="dp(event,'zt','fT')">
+      <input type="file" id="fT" accept=".pptx" onchange="onTemplate(this)">
+      <span class="zone-ico">📄</span>
+      <span class="zone-lbl">Clique ou arraste o template .pptx</span>
+      <span class="zone-hint">Marcadores no template: &lt;&lt;Nome completo&gt;&gt; · XXXXXX · XX de XXXXXX</span>
+    </div>
+    <div id="stT"></div>
+  </div>
+
+  <div class="card">
+    <div class="ct">Planilha de participantes (.xlsx / .csv)</div>
+    <div class="zone" id="zp" ondragover="dg(event,'zp')" ondragleave="dl('zp')" ondrop="dp(event,'zp','fP')">
+      <input type="file" id="fP" accept=".xlsx,.xls,.csv" onchange="onPlanilha(this)">
+      <span class="zone-ico">📊</span>
+      <span class="zone-lbl">Clique ou arraste a planilha</span>
+      <span class="zone-hint">.xlsx · .xls · .csv — 1ª linha = cabeçalhos</span>
+    </div>
+    <div id="stP"></div>
+  </div>
+
+  <div class="alert ai">💡 A planilha deve ter colunas com <strong>Nome</strong> e <strong>E-mail</strong> dos participantes. Os cabeçalhos serão mapeados no passo 3.</div>
+
+  <div class="brow">
+    <button class="btn btn-p" onclick="goStep(2)">Próximo →</button>
+  </div>
+</section>
+
+<!-- ══ STEP 2 ══ -->
+<section class="panel" id="s2">
+  <h1 class="ph">Dados do <span>seminário</span></h1>
+  <p class="ps">Informações inseridas em todos os certificados</p>
+
+  <div class="card">
+    <div class="ct">Evento</div>
+    <div class="grid2">
+      <div class="fg full"><label>Título do seminário</label>
+        <input id="cSem" type="text" placeholder='ex: Redes Neurais e Aprendizagem Profunda'>
+      </div>
+      <div class="fg full"><label>Ministrante</label>
+        <input id="cMin" type="text" placeholder='ex: Prof. Dr. João da Silva'>
+      </div>
+      <div class="fg"><label>Dia</label><input id="cDia" type="text" placeholder="15" maxlength="2"></div>
+      <div class="fg"><label>Mês (por extenso)</label><input id="cMes" type="text" placeholder="março"></div>
+      <div class="fg"><label>Ano</label><input id="cAno" type="text" value="2026" maxlength="4"></div>
+      <div class="fg"><label>Carga horária</label><input id="cCarga" type="text" value="uma hora"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ct">Envio por e-mail</div>
+    <div class="trow">
+      <div class="tinfo">
+        <strong>Enviar certificados por e-mail</strong>
+        <span>Envia PDF diretamente via SMTP ao gerar</span>
+      </div>
+      <label class="toggle"><input type="checkbox" id="togEmail" onchange="onToggleEmail()"><span class="slider"></span></label>
+    </div>
+
+    <div id="emailCfg" style="display:none;margin-top:20px">
+      <div class="alert aw">⚠️ Para Gmail, use uma <strong>App Password</strong> (não a senha normal).<br>
+        <a href="https://myaccount.google.com/apppasswords" target="_blank" style="color:var(--gold);">Criar App Password →</a>
+      </div>
+      <div class="grid2">
+        <div class="fg"><label>Servidor SMTP</label>
+          <select id="smtpHost">
+            <option value="smtp.gmail.com">Gmail</option>
+            <option value="smtp.office365.com">Outlook / Hotmail</option>
+            <option value="smtp.mail.yahoo.com">Yahoo</option>
+            <option value="smtp.usp.br">USP</option>
+            <option value="custom">Outro...</option>
+          </select>
+        </div>
+        <div class="fg"><label>Porta</label><input id="smtpPort" type="text" value="587" maxlength="5"></div>
+        <div class="fg"><label>E-mail remetente</label><input id="smtpUser" type="text" placeholder="seu@email.com"></div>
+        <div class="fg"><label>Senha / App Password</label><input id="smtpPass" type="password" placeholder="••••••••••••••••"></div>
+        <div class="fg full"><label>Nome do remetente</label><input id="smtpNome" type="text" value="Coloquinho da Pós — IME-USP"></div>
+        <div class="fg full"><label>Assunto do e-mail</label><input id="cfgAssunto" value="Certificado — {seminario}"></div>
+        <div class="fg full"><label>Corpo do e-mail (HTML)</label>
+          <textarea id="cfgCorpo" rows="5">Olá, {nome}! Segue em anexo o seu certificado de participação no seminário "{seminario}", realizado no Coloquinho da Pós no IME-USP em {data}. Obrigado pela presença!</textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="brow">
+    <button class="btn btn-s" onclick="goStep(1)">← Voltar</button>
+    <button class="btn btn-p" onclick="goStep(3)">Próximo →</button>
+  </div>
+</section>
+
+<!-- ══ STEP 3 ══ -->
+<section class="panel" id="s3">
+  <h1 class="ph">Lista de <span>participantes</span></h1>
+  <p class="ps">Mapeie as colunas e revise os dados</p>
+
+  <div class="card" id="mapCard" style="display:none">
+    <div class="ct">Mapeamento de colunas</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Indique qual coluna corresponde a cada campo:</p>
+    <div class="grid2">
+      <div class="fg">
+        <label>Coluna com o nome do participante</label>
+        <select id="mapNome"></select>
+      </div>
+      <div class="fg">
+        <label>Coluna com o e-mail</label>
+        <select id="mapEmail"><option value="">(não enviar e-mail)</option></select>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ct">Participantes</div>
+    <div id="tabelaPartic"><div class="alert aw">⚠️ Nenhuma planilha carregada. Volte ao passo 1.</div></div>
+  </div>
+
+  <div class="brow">
+    <button class="btn btn-s" onclick="goStep(2)">← Voltar</button>
+    <button class="btn btn-p" onclick="goStep(4)">Pré-visualizar →</button>
+  </div>
+</section>
+
+<!-- ══ STEP 4 ══ -->
+<section class="panel" id="s4">
+  <h1 class="ph">Pré-<span>visualização</span></h1>
+  <p class="ps">Gera um PDF real e exibe no navegador antes de processar todos</p>
+
+  <div class="card">
+    <div class="ct">Selecionar participante</div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <select id="prevSel" style="flex:1;max-width:320px" onchange="prevIdx=parseInt(this.value)||0"></select>
+      <button class="btn btn-s" onclick="prevNav(-1)">‹</button>
+      <button class="btn btn-s" onclick="prevNav(1)">›</button>
+      <button class="btn btn-p" onclick="gerarPreview()" id="btnPrev">🔍 Gerar preview</button>
+    </div>
+  </div>
+
+  <div class="prev-shell">
+    <div class="prev-bar">
+      <div class="pd" style="background:#e05555"></div>
+      <div class="pd" style="background:#e0b055"></div>
+      <div class="pd" style="background:#55aa66"></div>
+      <span style="font-family:'DM Mono',monospace;font-size:10px;color:#666;margin-left:8px">preview.pdf</span>
+    </div>
+    <div id="prevContent">
+      <div class="prev-placeholder">
+        <span style="font-size:40px">📄</span>
+        <span>Selecione um participante e clique em "Gerar preview"</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="brow" style="margin-top:20px">
+    <button class="btn btn-s" onclick="goStep(3)">← Voltar</button>
+    <button class="btn btn-p" onclick="goStep(5)">Gerar todos →</button>
+  </div>
+</section>
+
+<!-- ══ STEP 5 ══ -->
+<section class="panel" id="s5">
+  <h1 class="ph">Gerar & <span>enviar</span></h1>
+  <p class="ps">Processa todos os participantes, gera PDFs e (opcionalmente) envia por e-mail</p>
+
+  <div class="stats">
+    <div class="scard"><div class="snum sc" id="stTotal">0</div><div class="slbl">total</div></div>
+    <div class="scard"><div class="snum sg" id="stOk">0</div><div class="slbl">gerados</div></div>
+    <div class="scard"><div class="snum sy" id="stErr">0</div><div class="slbl">erros</div></div>
+  </div>
+
+  <div class="card">
+    <div class="ct">Processamento</div>
+
+    <div class="prog-wrap">
+      <div class="prog-meta"><span id="progLabel">Aguardando...</span><span id="progPct">0%</span></div>
+      <div class="prog-bar"><div class="prog-fill" id="progFill"></div></div>
+    </div>
+
+    <div class="console" id="logBox">
+      <span class="lo">▸ Aguardando início...</span>
+    </div>
+
+    <div class="brow">
+      <button class="btn btn-p" id="btnGerar" onclick="gerarTodos()">⚡ Gerar todos os certificados</button>
+      <button class="btn btn-g" id="btnZip" style="display:none" onclick="baixarZip()">⬇ Baixar ZIP com PDFs</button>
+      <button class="btn btn-s" onclick="goStep(4)">← Voltar</button>
+    </div>
+  </div>
+
+  <div id="resultTable" style="display:none">
+    <div class="card" style="margin-top:0">
+      <div class="ct">Resultado por participante</div>
+      <div id="resultBody"></div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<script>
+// ══ STATE ══
+const S = {
+  tplFile: null, planFile: null,
+  rows: [], cols: [],
+  mapNome: '', mapEmail: '',
+};
+let prevIdx = 0;
+
+// ══ NAVEGAÇÃO ══
+function goStep(n) {
+  document.querySelectorAll('.step-btn').forEach(b => {
+    const s = +b.dataset.s;
+    b.classList.toggle('active', s === n);
+    b.classList.toggle('done', s < n);
+  });
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('s'+n).classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+  if (n===3) renderStep3();
+  if (n===4) renderStep4();
+  if (n===5) document.getElementById('stTotal').textContent = S.rows.length;
+}
+
+// ══ STEP 1 — UPLOADS ══
+function onTemplate(inp) {
+  const f = inp.files[0]; if (!f) return;
+  S.tplFile = f;
+  document.getElementById('stT').innerHTML =
+    `<div class="file-ok">✅ <div><strong>${f.name}</strong> — ${(f.size/1024).toFixed(1)} KB</div></div>`;
+}
+
+function onPlanilha(inp) {
+  const f = inp.files[0]; if (!f) return;
+  S.planFile = f;
+  const ext = f.name.split('.').pop().toLowerCase();
+  const rd  = new FileReader();
+  rd.onload = e => {
+    try {
+      let data;
+      if (ext === 'csv') {
+        data = XLSX.utils.sheet_to_json(XLSX.read(e.target.result,{type:'string'}).Sheets[
+          XLSX.read(e.target.result,{type:'string'}).SheetNames[0]], {defval:''});
+      } else {
+        const wb = XLSX.read(e.target.result, {type:'array'});
+        data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {defval:''});
+      }
+      S.rows = data;
+      S.cols = data.length ? Object.keys(data[0]) : [];
+      S.mapNome  = S.cols.find(c => /nome/i.test(c))  || S.cols[0] || '';
+      S.mapEmail = S.cols.find(c => /email|e-mail/i.test(c)) || S.cols[1] || '';
+      document.getElementById('stP').innerHTML =
+        `<div class="file-ok">✅ <div><strong>${f.name}</strong> — ${data.length} participantes · colunas: ${S.cols.join(', ')}</div></div>`;
+    } catch(err) {
+      document.getElementById('stP').innerHTML =
+        `<div class="alert ae" style="margin-top:10px">❌ Erro: ${err.message}</div>`;
+    }
+  };
+  if (ext==='csv') rd.readAsText(f,'UTF-8'); else rd.readAsArrayBuffer(f);
+}
+
+// ══ STEP 2 — EMAIL TOGGLE ══
+function onToggleEmail() {
+  document.getElementById('emailCfg').style.display =
+    document.getElementById('togEmail').checked ? 'block' : 'none';
+}
+
+// ══ STEP 3 — PARTICIPANTES ══
+function renderStep3() {
+  if (!S.rows.length) return;
+  const mc = document.getElementById('mapCard');
+  mc.style.display = 'block';
+
+  // Selects de mapeamento
+  const optCols = S.cols.map(c=>`<option value="${c}" ${c===S.mapNome?'selected':''}>${c}</option>`).join('');
+  const optEmail= '<option value="">(não enviar)</option>'+
+    S.cols.map(c=>`<option value="${c}" ${c===S.mapEmail?'selected':''}>${c}</option>`).join('');
+  document.getElementById('mapNome').innerHTML  = optCols;
+  document.getElementById('mapEmail').innerHTML = optEmail;
+  document.getElementById('mapNome').value  = S.mapNome;
+  document.getElementById('mapEmail').value = S.mapEmail;
+  document.getElementById('mapNome').onchange  = () => { S.mapNome  = document.getElementById('mapNome').value;  renderTabela(); };
+  document.getElementById('mapEmail').onchange = () => { S.mapEmail = document.getElementById('mapEmail').value; };
+
+  renderTabela();
+}
+
+function renderTabela() {
+  const cols = S.cols.slice(0,5);
+  const html = `
+    <div class="twrap">
+      <table>
+        <thead><tr><th>#</th>${cols.map(c=>`<th>${c}</th>`).join('')}<th>Status</th></tr></thead>
+        <tbody>
+          ${S.rows.slice(0,80).map((r,i)=>`
+            <tr>
+              <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${i+1}</td>
+              ${cols.map(c=>`<td>${r[c]||'—'}</td>`).join('')}
+              <td><span class="badge bwait">⏳ aguardando</span></td>
+            </tr>`).join('')}
+          ${S.rows.length>80?`<tr><td colspan="${cols.length+2}" style="text-align:center;padding:12px;font-size:12px;color:var(--muted)">… e mais ${S.rows.length-80} participantes</td></tr>`:''}
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size:12px;color:var(--muted);margin-top:10px">${S.rows.length} participante(s) · exibindo máx. 80</p>`;
+  document.getElementById('tabelaPartic').innerHTML = html;
+}
+
+// ══ STEP 4 — PREVIEW ══
+function renderStep4() {
+  const sel = document.getElementById('prevSel');
+  sel.innerHTML = S.rows.map((r,i)=>`<option value="${i}">${r[S.mapNome]||'Participante '+(i+1)}</option>`).join('');
+  sel.value = prevIdx;
+}
+
+function prevNav(d) {
+  const sel = document.getElementById('prevSel');
+  prevIdx = Math.max(0, Math.min(S.rows.length-1, prevIdx+d));
+  sel.value = prevIdx;
+}
+
+async function gerarPreview() {
+  if (!S.tplFile) { alert('Faça upload do template PPTX no passo 1.'); return; }
+  const btn = document.getElementById('btnPrev');
+  btn.disabled = true; btn.textContent = '⏳ Gerando...';
+
+  const row  = S.rows[prevIdx] || {};
+  const nome = String(row[S.mapNome] || 'Participante Exemplo').trim();
+
+  const fd = new FormData();
+  fd.append('template', S.tplFile);
+  fd.append('config', JSON.stringify({
+    nome, seminario: g('cSem'), ministrante: g('cMin'),
+    dia: g('cDia'), mes: g('cMes'), ano: g('cAno'), carga: g('cCarga'),
+  }));
+
+  try {
+    const resp = await fetch('/api/preview', {method:'POST', body: fd});
+    if (!resp.ok) { const j = await resp.json(); throw new Error(j.erro||resp.statusText); }
+    const blob = await resp.blob();
+    const url  = URL.createObjectURL(blob);
+    document.getElementById('prevContent').innerHTML =
+      `<iframe class="prev-frame" src="${url}#toolbar=0&navpanes=0"></iframe>`;
+  } catch(e) {
+    document.getElementById('prevContent').innerHTML =
+      `<div class="prev-placeholder"><span style="font-size:32px">❌</span><span>${e.message}</span></div>`;
+  }
+  btn.disabled = false; btn.textContent = '🔍 Gerar preview';
+}
+
+// ══ STEP 5 — GERAR ══
+async function gerarTodos() {
+  if (!S.tplFile)  { logAdd('❌ Template não carregado!','lerr'); return; }
+  if (!S.rows.length) { logAdd('❌ Planilha não carregada!','lerr'); return; }
+
+  const btn = document.getElementById('btnGerar');
+  btn.disabled = true; btn.textContent = '⏳ Processando...';
+  document.getElementById('btnZip').style.display = 'none';
+  document.getElementById('resultTable').style.display = 'none';
+  logClear();
+
+  setProgress(0, `Enviando ${S.rows.length} participantes para o servidor...`);
+  logAdd(`▸ Iniciando geração de ${S.rows.length} certificado(s)...`,'lo');
+
+  const cfg = {
+    seminario:    g('cSem'),
+    ministrante:  g('cMin'),
+    dia:          g('cDia'),
+    mes:          g('cMes'),
+    ano:          g('cAno'),
+    carga:        g('cCarga'),
+    col_nome:     document.getElementById('mapNome').value  || S.mapNome,
+    col_email:    document.getElementById('mapEmail').value || S.mapEmail,
+    enviar_email: document.getElementById('togEmail').checked,
+    smtp_host:    g('smtpHost'),
+    smtp_port:    g('smtpPort') || '587',
+    smtp_user:    g('smtpUser'),
+    smtp_pass:    g('smtpPass'),
+    smtp_nome:    g('smtpNome'),
+    assunto:      g('cfgAssunto'),
+    corpo:        g('cfgCorpo'),
+  };
+
+  const fd = new FormData();
+  fd.append('template', S.tplFile);
+  fd.append('planilha', S.planFile);
+  fd.append('config', JSON.stringify(cfg));
+
+  try {
+    const resp = await fetch('/api/gerar', {method:'POST', body: fd});
+    const json = await resp.json();
+
+    if (!resp.ok) { logAdd('❌ Erro: ' + (json.erro||resp.statusText), 'lerr'); return; }
+
+    // Mostra resultados
+    setProgress(100, 'Concluído!');
+    document.getElementById('stOk').textContent  = json.sucesso;
+    document.getElementById('stErr').textContent = json.erros;
+
+    json.resultados.forEach(r => {
+      if (r.status === 'ok')     logAdd(`[${r.idx}] ✅ ${r.nome} — ${r.msg}`, 'lok');
+      else if (r.status === 'erro')  logAdd(`[${r.idx}] ❌ ${r.nome}: ${r.msg}`, 'lerr');
+      else                           logAdd(`[${r.idx}] ⏭ ${r.nome}: ${r.msg}`, 'lwarn');
+    });
+
+    logAdd(`▸ Concluído: ${json.sucesso} gerados, ${json.erros} erros.`, 'lo');
+
+    // Tabela de resultados
+    renderResultados(json.resultados);
+
+    if (json.sucesso > 0) {
+      document.getElementById('btnZip').style.display = 'inline-flex';
+    }
+  } catch(e) {
+    logAdd('❌ Erro de conexão: ' + e.message, 'lerr');
+  }
+
+  btn.disabled = false; btn.textContent = '⚡ Gerar novamente';
+}
+
+function renderResultados(res) {
+  const html = `
+    <div class="twrap">
+      <table>
+        <thead><tr><th>#</th><th>Nome</th><th>Arquivo</th><th>Status</th><th>Mensagem</th></tr></thead>
+        <tbody>
+          ${res.map(r=>`
+            <tr>
+              <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">${r.idx}</td>
+              <td><strong>${r.nome}</strong></td>
+              <td style="font-family:'DM Mono',monospace;font-size:11px">${r.arquivo||'—'}</td>
+              <td><span class="badge ${r.status==='ok'?'bok':r.status==='erro'?'berr':'bwait'}">
+                ${r.status==='ok'?'✅ ok':r.status==='erro'?'❌ erro':'⏭ pulado'}
+              </span></td>
+              <td style="font-size:12px;color:var(--muted)">${r.msg}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  document.getElementById('resultBody').innerHTML = html;
+  document.getElementById('resultTable').style.display = 'block';
+}
+
+function baixarZip() { window.location.href = '/api/download-zip'; }
+
+// ══ HELPERS ══
+const g = id => (document.getElementById(id)||{}).value||'';
+
+function setProgress(pct, label) {
+  document.getElementById('progFill').style.width  = pct + '%';
+  document.getElementById('progPct').textContent   = pct + '%';
+  document.getElementById('progLabel').textContent = label;
+}
+
+function logAdd(msg, cls='lo') {
+  const c = document.getElementById('logBox');
+  const d = document.createElement('div');
+  d.className = cls; d.textContent = msg;
+  c.appendChild(d); c.scrollTop = c.scrollHeight;
+}
+
+function logClear() {
+  document.getElementById('logBox').innerHTML = '';
+}
+
+// ══ DRAG & DROP ══
+function dg(e, id)         { e.preventDefault(); document.getElementById(id).classList.add('over'); }
+function dl(id)             { document.getElementById(id).classList.remove('over'); }
+function dp(e, zid, fid)   {
+  e.preventDefault(); dl(zid);
+  const inp = document.getElementById(fid);
+  const dt  = e.dataTransfer;
+  if (dt.files.length) {
+    // Simula change event
+    const fn = fid === 'fT' ? onTemplate : onPlanilha;
+    Object.defineProperty(inp, 'files', { value: dt.files, configurable: true });
+    fn(inp);
+  }
+}
+
+// SMTP host auto-port
+document.addEventListener('DOMContentLoaded', () => {
+  const sh = document.getElementById('smtpHost');
+  if (sh) sh.addEventListener('change', () => {
+    const ports = {'smtp.gmail.com':'587','smtp.office365.com':'587',
+                   'smtp.mail.yahoo.com':'587','smtp.usp.br':'587'};
+    const p = document.getElementById('smtpPort');
+    if (p && ports[sh.value]) p.value = ports[sh.value];
+  });
+});
+</script>
+</body>
+</html>
